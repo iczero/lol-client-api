@@ -24,13 +24,18 @@ async function getData() {
   } catch (err) {
     let summoner = await api.request('GET', '/lol-summoner/v1/current-summoner');
     let summonerId = summoner.summonerId;
-    data.champions = await api.request('GET', `/lol-champions/v1/inventories/${summonerId}/champions`);
-    data.perks = await api.request('GET', '/lol-perks/v1/perks');
-    data.perkStyles = await api.request('GET', '/lol-perks/v1/styles');
+    let p = await Promise.all([
+      api.request('GET', `/lol-champions/v1/inventories/${summonerId}/champions`),
+      api.request('GET', '/lol-perks/v1/perks'),
+      api.request('GET', '/lol-perks/v1/styles')
+    ]);
+    data.champions = p[0];
+    data.perks = p[1];
+    data.perkStyles = p[2];
     // run this later
     (async () => {
       try {
-        fsP.mkdir(path);
+        await fsP.mkdir(path);
       } catch (err) {
         // it already exists, do nothing
       }
