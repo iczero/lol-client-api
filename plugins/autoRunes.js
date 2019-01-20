@@ -14,35 +14,36 @@ module.exports = async function start() {
   let runePages = await api.request('GET', '/lol-perks/v1/pages');
   let pageId = runePages.filter(a => a.name.startsWith('auto '))[0].id;
   let autoCurrentChampionId = -1;
+  let prevSelectedChampionId = -1;
 
   api.on('event-/lol-champ-select/v1/session', async (type, session) => {
-    for (let action2 of session.actions) {
-      for (let action of action2) {
-        // only do stuff for the local player
-        if (action.actorCellId !== session.localPlayerCellId) continue;
-        // only update runes on champion pick
-        // in future, may need to change to lock
-        if (action.type !== 'pick') continue;
-        let champion = data.champions.filter(a => a.id === action.championId)[0];
-        // no need to update as it is already set to the right one
-        if (champion.id === autoCurrentChampionId) continue;
-        let runePage;
-        try {
-          runePage = JSON.parse(await fs.promises.readFile(`${RUNES_PATH}/${champion.name}.json`));
-        } catch (err) {
-          console.log(err);
-          continue;
-        }
-        if (typeof runePage.primaryStyleId === 'string') {
-          runePage = await runesToId.compileRunePage(runePage);
-        }
-        Object.assign(runePage, { name: `auto (${champion.name})` });
-        await api.request('PUT', '/lol-perks/v1/pages/' + pageId, {
-          body: runePage
-        });
-        autoCurrentChampionId = champion.id;
-        console.log('Auto-updating rune page for ' + champion.name);
+    let selectedChampionId;
+    for (let slot of session.myTeam) {
+      if (slot.cellId === session.localPlayerCellId) {
+        selectedChampionId = slot.championId;
+        break;
       }
     }
+
+    // no change for champion selection of current player
+    if (selectedChampionId === prevSelectedChampionId) return;
+    prevSelectedChampionId = selectedChampionId;
+    if (selectedChampionId === 0) return;
+    // the rune page has already been set to this champion's rune page
+    if (selectedChampionId === autoCurrentChampionId) return;
+    let champion = data.champions.filter(a => a.id === selectedChampionId)[0];
+    let runePage;
+    try {
+      runePage = JSON.parse(await fs.promises.readFile(`${RUNES_PATH}/${champion.name}.json`));
+    } catch (err) {
+      return;
+    }
+    runePage = await runesToId.compileRunePage(runePage);
+    Object.assign(runePage, { name: `auto (${champion.name})` });
+    await api.request('PUT', '/lol-perks/v1/pages/' + pageId, {
+      body: runePage
+    });
+    autoCurrentChampionId = champion.id;
+    console.log('Auto-updating rune page for ' + champion.name);
   });
 };
