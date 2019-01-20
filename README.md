@@ -60,17 +60,20 @@ A full example:
 ```json
 {
     "primaryStyleId": "Precision",
+    "subStyleId": "Sorcery",
+
     "selectedPerkIds": [
         "Fleet Footwork",
         "Triumph",
         "Legend: Alacrity",
         "Coup de Grace",
+
         "Celerity",
         "Gathering Storm",
+
         "AttackSpeed",
         "Armor",
         "HealthScaling"
-    ],
-    "subStyleId": "Sorcery"
+    ]
 }
 ```
