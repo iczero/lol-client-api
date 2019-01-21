@@ -17,10 +17,15 @@ module.exports = async function start() {
   let prevSelectedChampionId = -1;
 
   api.on('event-/lol-champ-select/v1/session', async (type, session) => {
+    if (type === 'Delete') return;
     let selectedChampionId;
-    for (let slot of session.myTeam) {
-      if (slot.cellId === session.localPlayerCellId) {
-        selectedChampionId = slot.championId;
+    for (let action2 of session.actions) {
+      for (let action of action2) {
+        // only do stuff for the local player
+        if (action.actorCellId !== session.localPlayerCellId) continue;
+        // only update runes on champion pick
+        if (action.type !== 'pick') continue;
+        selectedChampionId = action.championId;
         break;
       }
     }
