@@ -9,6 +9,6 @@ module.exports = {
   // Stuff to load
   // Paths are relative to bin/cli.js
   plugins: {
-    autoRunes: '../src/autoRunes'
+    autoRunes: '../plugins/autoRunes'
   }
 };
