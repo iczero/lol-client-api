@@ -10,5 +10,11 @@ module.exports = {
   // Paths are relative to bin/cli.js
   plugins: {
     autoRunes: '../plugins/autoRunes'
+  },
+  /* Automatically login
+  autoLogin: {
+    username: 'asdf',
+    password: 'ghjkl'
   }
+  */
 };

@@ -2,6 +2,8 @@ const LCUConnector = require('lcu-connector');
 const WebSocket = require('ws');
 const EventEmitter = require('events');
 const request = require('request-promise');
+const misc = require('./misc');
+const uuid = require('uuid');
 
 const messageTypes = {
   WELCOME: 0,
@@ -27,6 +29,8 @@ class LeagueClientAPI extends EventEmitter {
     this.connector = new LCUConnector(exePath);
     this.connectionData = null;
     this.wsConnection = null;
+    // pending WAMP RPC calls
+    this.pendingCalls = new Map();
 
     this._init();
   }
@@ -68,11 +72,7 @@ class LeagueClientAPI extends EventEmitter {
       rejectUnauthorized: false
     });
     this.wsConnection
-      .on('open', () => {
-        this.emit('wsConnect');
-        // subscribe to events
-        this.wsConnection.send(JSON.stringify([5, 'OnJsonApiEvent']));
-      })
+      .on('open', () => this.emit('wsConnect'))
       .on('close', code => {
         this.emit('wsDisconnect', code);
         this.wsConnection = null;
@@ -98,14 +98,56 @@ class LeagueClientAPI extends EventEmitter {
     let [type, ...data] = message;
     if (!type) return;
     switch (type) {
-      // TODO: deal with other types
+      // events
       case messageTypes.EVENT: {
-        let event = data[1];
-        this.emit('event', event);
-        this.emit('event-' + event.uri, event.eventType, event.data);
+        let [eventType, event] = data;
+        this.emit('allEvents', eventType, event);
+        this.emit(eventType, event);
+        // TODO: handle more event types
+        if (eventType === 'OnJsonApiEvent') {
+          this.emit(eventType + '-' + event.uri, event.eventType, event.data);
+        }
+        break;
+      }
+      // RPC results
+      case messageTypes.CALLERROR: {
+        let [messageId, code, description] = data;
+        let error = new Error('RPC error');
+        error.code = code;
+        error.description = description;
+        let deferred = this.pendingCalls.get(messageId);
+        if (!deferred) break; // ?????
+        deferred.reject(error);
+        break;
+      }
+      case messageTypes.CALLRESULT: {
+        let [messageId, result] = data;
+        let deferred = this.pendingCalls.get(messageId);
+        if (!deferred) break;
+        deferred.resolve(result);
         break;
       }
     }
+  }
+  /**
+   * Subscribe to an event over WAMP
+   * @param {String} event Event name
+   */
+  subscribe(event) {
+    this.wsConnection.send(JSON.stringify([
+      messageTypes.SUBSCRIBE,
+      event
+    ]));
+  }
+  /**
+   * Unsubscribe from an event over WAMP
+   * @param {String} event Event name
+   */
+  unsubscribe(event) {
+    this.wsConnection.send(JSON.stringify([
+      messageTypes.UNSUBSCRIBE,
+      event
+    ]));
   }
   /**
    * Make an API request
@@ -114,7 +156,7 @@ class LeagueClientAPI extends EventEmitter {
    * @param {Object} options Additional options to request()
    * @return {Object} The result of the request
    */
-  async request(method, endpoint, options) {
+  async httpRequest(method, endpoint, options) {
     return await request({
       method,
       url: this.urlPrefix + endpoint,
@@ -129,6 +171,25 @@ class LeagueClientAPI extends EventEmitter {
       rejectUnauthorized: false,
       ...options
     });
+  }
+  /**
+   * Make an API request over WAMP (generally faster and more reliable)
+   * @param {String} fnName RPC function name
+   * @param  {...any} args Any arguments
+   */
+  async wampRequest(fnName, ...args) {
+    if (!this.wsConnection) throw new Error('Not connected');
+    let deferred = new misc.Deferred();
+    deferred.requestFnName = fnName;
+    let id = uuid();
+    this.pendingCalls.set(id, deferred);
+    this.wsConnection.send(JSON.stringify([
+      messageTypes.CALL,
+      id,
+      fnName,
+      ...args
+    ]));
+    return await deferred.promise;
   }
 }
 

@@ -10,7 +10,19 @@ Lots of things that are good to have for some people who play League of Legends
 
 ## Documentation
 
-See JSDoc for documentation on stuff.
+See JSDoc for documentation on code.
+
+### API Documentation
+
+HTTP API documentation (with `api.request()`) can be viewed with
+[Pupix/rift-explorer](https://github.com/Pupix/rift-explorer). WAMP calls (with
+`api.wampRequest()`) are extremely similar, with function names in the form
+`METHOD /path`, with path parameters included. Query string parameters are
+usually appended as separate arguments. For more information, consult
+`/Help?format=Full`.
+
+WAMP calls are generally faster than calls made over HTTP, and seem to be the
+preferred way used by LeagueClientUx.
 
 ### `autoRunes` plugin
 

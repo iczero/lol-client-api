@@ -4,19 +4,17 @@ const RUNES_PATH = 'runes';
 const api = require('../src/apiProvider');
 const dataProvider = require('../src/dataProvider');
 const runesToId = require('../src/runesToId');
-
-let started;
+const loginHandler = require('../src/loginHandler');
 
 module.exports = async function start() {
-  if (started) return;
-  started = true;
+  await loginHandler.waitForLogin();
   let data = await dataProvider.getData();
-  let runePages = await api.request('GET', '/lol-perks/v1/pages');
+  let runePages = await api.wampRequest('GET /lol-perks/v1/pages');
   let pageId = runePages.filter(a => a.name.startsWith('auto '))[0].id;
   let autoCurrentChampionId = -1;
   let prevSelectedChampionId = -1;
 
-  api.on('event-/lol-champ-select/v1/session', async (type, session) => {
+  let handler = async (type, session) => {
     if (type === 'Delete') return;
     let selectedChampionId;
     for (let action2 of session.actions) {
@@ -45,10 +43,17 @@ module.exports = async function start() {
     }
     runePage = await runesToId.compileRunePage(runePage);
     Object.assign(runePage, { name: `auto (${champion.name})` });
-    await api.request('PUT', '/lol-perks/v1/pages/' + pageId, {
-      body: runePage
-    });
+    try {
+      await api.wampRequest('PUT /lol-perks/v1/pages/' + pageId, runePage);
+    } catch (err) {
+      console.error(`Error while setting rune page for ${champion.name} (check validity?)`);
+      console.error(`${err.code}: ${err.description}`);
+    }
     autoCurrentChampionId = champion.id;
     console.log('Auto-updating rune page for ' + champion.name);
+  };
+  api.on('OnJsonApiEvent-/lol-champ-select/v1/session', handler);
+  api.once('wsDisconnect', () => {
+    api.removeListener('OnJsonApiEvent-/lol-champ-select/v1/session', handler);
   });
 };
