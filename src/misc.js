@@ -31,7 +31,21 @@ function runOnce(innerFn) {
   };
 }
 
+/**
+ * Wait for an event
+ * @async
+ * @param {EventEmitter} emitter
+ * @param {String} evName Event name
+ * @return {Object}
+ */
+function waitForEvent(emitter, evName) {
+  return new Promise((resolve, reject) => {
+    emitter.once(evName, (...args) => resolve(args));
+  });
+}
+
 module.exports = {
   Deferred,
-  runOnce
+  runOnce,
+  waitForEvent
 };

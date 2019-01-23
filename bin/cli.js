@@ -5,6 +5,12 @@ const util = require('util');
 const api = require('../src/apiProvider');
 const config = require('../config.js');
 
+let replServer = repl.start({
+  breakEvalOnSigint: true
+});
+replServer.on('exit', () => process.exit(0));
+replServer.context.printEvents = false;
+
 api
 .on('connect', () => console.log('Found lockfile'))
 .on('disconnect', () => console.log('Lockfile removed'))
@@ -19,6 +25,7 @@ api
 })
 .on('wsDisconnect', () => console.log('WebSocket events disconnected'))
 .on('OnJsonApiEvent', ev => {
+  if (!replServer.context.printEvents) return;
   let out = [];
   out.push(`===== API Event: ${ev.eventType} ${ev.uri}`);
   out.push(util.inspect(ev.data, config.cliInspectOpts));
@@ -27,10 +34,6 @@ api
 })
 .on('error', err => console.error(err));
 
-let replServer = repl.start({
-  breakEvalOnSigint: true
-});
-replServer.on('exit', () => process.exit(0));
 replServer.context.api = api;
 replServer.context.result = null;
 let request = function replDoRequest(method, endpoint, options) {

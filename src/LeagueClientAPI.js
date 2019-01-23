@@ -4,6 +4,7 @@ const EventEmitter = require('events');
 const request = require('request-promise');
 const misc = require('./misc');
 const uuid = require('uuid');
+const debug = require('debug')('api:connector');
 
 const messageTypes = {
   WELCOME: 0,
@@ -29,6 +30,7 @@ class LeagueClientAPI extends EventEmitter {
     this.connector = new LCUConnector(exePath);
     this.connectionData = null;
     this.wsConnection = null;
+    this.wsConnected = false;
     // pending WAMP RPC calls
     this.pendingCalls = new Map();
 
@@ -47,6 +49,7 @@ class LeagueClientAPI extends EventEmitter {
    * @param {Object} data
    */
   _onLockfileExists(data) {
+    debug('found lockfile');
     this.connectionData = data;
     this.urlPrefix = `${data.protocol}://127.0.0.1:${data.port}`;
     this.connectWs(data);
@@ -56,6 +59,7 @@ class LeagueClientAPI extends EventEmitter {
    * Called internally when the lockfile is deleted
    */
   _onLockfileGone() {
+    debug('lockfile deleted');
     this.emit('disconnect');
     this.connectionData = null;
     this.urlPrefix = null;
@@ -64,7 +68,8 @@ class LeagueClientAPI extends EventEmitter {
   connectWs() {
     let data = this.connectionData;
     if (!data) return;
-    this.wsConnection = new WebSocket(`ws${data.protocol === 'https' ? 's' : ''}://127.0.0.1:${data.port}`, {
+    let endpoint = `ws${data.protocol === 'https' ? 's' : ''}://127.0.0.1:${data.port}`;
+    this.wsConnection = new WebSocket(endpoint, {
       headers: {
         'Authorization': 'Basic ' +
           Buffer.from('riot:' + data.password).toString('base64')
@@ -72,8 +77,22 @@ class LeagueClientAPI extends EventEmitter {
       rejectUnauthorized: false
     });
     this.wsConnection
-      .on('open', () => this.emit('wsConnect'))
+      .on('open', () => {
+        this.wsConnected = true;
+        this.emit('wsConnect');
+        debug('websocket connected on ' + endpoint);
+      })
       .on('close', code => {
+        if (!this.wsConnected) return;
+        debug('websocket disconnected');
+        for (let deferred of this.pendingCalls.values()) {
+          debug(`closing wamp request for ${deferred.requestFnName}`);
+          let err = new Error('WebSocket disconnected');
+          err.code = 'Disconnected';
+          err.description = 'WebSocket connection ended';
+          deferred.reject(err);
+        }
+        this.wsConnected = false;
         this.emit('wsDisconnect', code);
         this.wsConnection = null;
       })
@@ -117,7 +136,9 @@ class LeagueClientAPI extends EventEmitter {
         error.description = description;
         let deferred = this.pendingCalls.get(messageId);
         if (!deferred) break; // ?????
+        debug(`wamp error (${deferred.requestFnName}) ${code}: ${description}`);
         deferred.reject(error);
+        this.pendingCalls.delete(messageId);
         break;
       }
       case messageTypes.CALLRESULT: {
@@ -125,6 +146,7 @@ class LeagueClientAPI extends EventEmitter {
         let deferred = this.pendingCalls.get(messageId);
         if (!deferred) break;
         deferred.resolve(result);
+        this.pendingCalls.delete(messageId);
         break;
       }
     }
@@ -157,6 +179,7 @@ class LeagueClientAPI extends EventEmitter {
    * @return {Object} The result of the request
    */
   async httpRequest(method, endpoint, options) {
+    debug(`http: ${method} ${endpoint}`);
     return await request({
       method,
       url: this.urlPrefix + endpoint,
@@ -179,6 +202,7 @@ class LeagueClientAPI extends EventEmitter {
    */
   async wampRequest(fnName, ...args) {
     if (!this.wsConnection) throw new Error('Not connected');
+    debug('wamp: ' + fnName);
     let deferred = new misc.Deferred();
     deferred.requestFnName = fnName;
     let id = uuid();

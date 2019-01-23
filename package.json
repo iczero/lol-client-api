@@ -20,7 +20,8 @@
   },
   "homepage": "https://github.com/iczero/lol-client-api#readme",
   "dependencies": {
-    "lcu-connector": "^1.0.2",
+    "debug": "^4.1.1",
+    "lcu-connector": "^2.0.0",
     "request": "^2.88.0",
     "request-promise": "^4.2.2",
     "uuid": "^3.3.2",
