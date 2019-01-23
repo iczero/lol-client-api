@@ -6,7 +6,7 @@ const dataProvider = require('../src/dataProvider');
 const runesToId = require('../src/runesToId');
 const loginHandler = require('../src/loginHandler');
 const misc = require('../src/misc');
-const debug = require('debug')('plugins:autoRunes');
+const debug = require('debug')('api:plugin-autoRunes');
 
 module.exports = async function start() {
   await loginHandler.waitForLogin();
@@ -46,10 +46,11 @@ module.exports = async function start() {
       }
     }
 
+    if (!selectedChampionId) return;
     // no change for champion selection of current player
     if (selectedChampionId === prevSelectedChampionId) return;
     prevSelectedChampionId = selectedChampionId;
-    if (selectedChampionId === 0) return;
+    if (selectedChampionId <= 0) return;
     // the rune page has already been set to this champion's rune page
     if (selectedChampionId === autoCurrentChampionId) return;
     let champion = data.champions.filter(a => a.id === selectedChampionId)[0];
