@@ -5,34 +5,40 @@ const api = require('../src/apiProvider');
 const dataProvider = require('../src/dataProvider');
 const runesToId = require('../src/runesToId');
 const loginHandler = require('../src/loginHandler');
-const misc = require('../src/misc');
 const debug = require('debug')('api:plugin-autoRunes');
 
 module.exports = async function start() {
   await loginHandler.waitForLogin();
   let data = await dataProvider.getData();
-  // this solves the race condition where the event fires before the
-  // request returns with old data
-  let runePages = await Promise.race([
-    api.wampRequest('GET /lol-perks/v1/pages'),
-    (async () => (await misc.waitForEvent(api, 'OnJsonApiEvent-/lol-perks/v1/pages'))[1])()
-  ]);
+  let runePages;
   let pageId;
-  for (;;) {
+  let processRunePages = () => {
     let page = runePages.filter(a => a.name.startsWith('auto '))[0];
     if (!page) {
-      debug('no target page found, waiting for events');
-      runePages = (await misc.waitForEvent(api, 'OnJsonApiEvent-/lol-perks/v1/pages'))[1];
-      continue;
+      debug('no target page found');
+      return false;
     }
     pageId = page.id;
-    break;
-  }
-  debug('using rune page ' + pageId);
+    debug('using rune page ' + pageId);
+    return true;
+  };
+  let pageChangeHandler = (type, result) => {
+    runePages = result;
+    if (processRunePages()) {
+      removePageChangeHandler();
+    }
+  };
+  let removePageChangeHandler = () => {
+    api.removeListener('OnJsonApiEvent-/lol-perks/v1/pages', pageChangeHandler);
+  };
+  api.on('OnJsonApiEvent-/lol-perks/v1/pages', pageChangeHandler);
+  debug('doing initial request for rune pages');
+  runePages = await api.wampRequest('GET /lol-perks/v1/pages');
+  if (processRunePages()) removePageChangeHandler();
   let autoCurrentChampionId = -1;
   let prevSelectedChampionId = -1;
 
-  let handler = async (type, session) => {
+  let champSelectHandler = async (type, session) => {
     if (type === 'Delete') return;
     let selectedChampionId;
     for (let action2 of session.actions) {
@@ -46,6 +52,7 @@ module.exports = async function start() {
       }
     }
 
+    if (!pageId) return;
     if (!selectedChampionId) return;
     // no change for champion selection of current player
     if (selectedChampionId === prevSelectedChampionId) return;
@@ -73,8 +80,9 @@ module.exports = async function start() {
     autoCurrentChampionId = champion.id;
     console.log('Auto-updating rune page for ' + champion.name);
   };
-  api.on('OnJsonApiEvent-/lol-champ-select/v1/session', handler);
+  api.on('OnJsonApiEvent-/lol-champ-select/v1/session', champSelectHandler);
   api.once('wsDisconnect', () => {
-    api.removeListener('OnJsonApiEvent-/lol-champ-select/v1/session', handler);
+    api.removeListener('OnJsonApiEvent-/lol-champ-select/v1/session', champSelectHandler);
+    removePageChangeHandler();
   });
 };
