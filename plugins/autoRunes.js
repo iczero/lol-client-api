@@ -40,26 +40,50 @@ module.exports = async function start() {
 
   let champSelectHandler = async (type, session) => {
     if (type === 'Delete') return;
+    if (!pageId) return;
     let selectedChampionId;
-    for (let action2 of session.actions) {
-      for (let action of action2) {
-        // only do stuff for the local player
-        if (action.actorCellId !== session.localPlayerCellId) continue;
-        // only update runes on champion pick
-        if (action.type !== 'pick') continue;
-        selectedChampionId = action.championId;
+    if (session.actions.length) {
+      debug('finding champion selection by actions');
+      for (let action2 of session.actions) {
+        for (let action of action2) {
+          // only do stuff for the local player
+          if (action.actorCellId !== session.localPlayerCellId) continue;
+          // only update runes on champion pick
+          if (action.type !== 'pick') continue;
+          selectedChampionId = action.championId;
+          break;
+        }
+      }
+    } else {
+      debug('finding champion selection by myTeam');
+      for (let cell of session.myTeam) {
+        if (cell.cellId !== session.localPlayerCellId) continue;
+        selectedChampionId = cell.championId;
         break;
       }
     }
 
-    if (!pageId) return;
-    if (!selectedChampionId) return;
+    debug('found champion id: ' + selectedChampionId);
+
+    if (!selectedChampionId) {
+      debug('no selection, abort');
+      return;
+    }
     // no change for champion selection of current player
-    if (selectedChampionId === prevSelectedChampionId) return;
+    if (selectedChampionId === prevSelectedChampionId) {
+      debug('no change in selection, abort');
+      return;
+    }
     prevSelectedChampionId = selectedChampionId;
-    if (selectedChampionId <= 0) return;
+    if (selectedChampionId <= 0) {
+      debug('selected champion id was negative (selected none?), abort');
+      return;
+    }
     // the rune page has already been set to this champion's rune page
-    if (selectedChampionId === autoCurrentChampionId) return;
+    if (selectedChampionId === autoCurrentChampionId) {
+      debug('rune page already updated for this champion, abort');
+      return;
+    }
     let champion = data.champions.filter(a => a.id === selectedChampionId)[0];
     debug('current selection: ' + champion.name);
     let runePage;
@@ -78,7 +102,7 @@ module.exports = async function start() {
       console.error(`${err.code}: ${err.description}`);
     }
     autoCurrentChampionId = champion.id;
-    console.log('Auto-updating rune page for ' + champion.name);
+    console.log('Auto-updated rune page for ' + champion.name);
   };
   api.on('OnJsonApiEvent-/lol-champ-select/v1/session', champSelectHandler);
   api.once('wsDisconnect', () => {

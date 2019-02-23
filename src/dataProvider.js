@@ -97,7 +97,7 @@ async function loadData() {
     out.perks = p[1];
     out.perkStyles = p[2];
     debug('data loaded from client');
-    // run this later
+    // we don't have to wait for any of this
     (async () => {
       try {
         await fsP.mkdir(path);
@@ -110,6 +110,25 @@ async function loadData() {
       debug('data cached to filesystem');
     })();
   }
+  // try to save a copy of the swagger api docs
+  (async () => {
+    try {
+      await fsP.stat(path + 'openapi.json');
+    } catch (err) {
+      let openapi;
+      try {
+        openapi = await api.wampRequest('GET /swagger/v3/openapi.json');
+        fsP.writeFile(path + 'openapi.json', JSON.stringify(openapi, null, 2));
+        debug('saving api documentation');
+      } catch (err) {
+        // swagger isn't enabled
+        // put "enable_swagger: true" after the "---" line in
+        // RADS/projects/league_client/releases/<latest release>/deploy/system.yaml
+        // then restart
+        debug('swagger is not enabled');
+      }
+    }
+  })();
   prevDataVersion = version;
   dataIsCurrent = true;
   data = out;
