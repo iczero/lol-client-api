@@ -102,7 +102,7 @@ module.exports = async function start() {
       console.error(`${err.code}: ${err.description}`);
     }
     autoCurrentChampionId = champion.id;
-    console.log('Auto-updated rune page for ' + champion.name);
+    console.log('Successfully auto-updated rune page for ' + champion.name);
   };
   api.on('OnJsonApiEvent-/lol-champ-select/v1/session', champSelectHandler);
   api.once('wsDisconnect', () => {

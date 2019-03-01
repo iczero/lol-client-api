@@ -66,6 +66,25 @@ async function loadData() {
   debug('loading data');
   // ensure we have the data of the current version
   await getCurrentVersion();
+  // try to save a copy of the swagger api docs
+  (async () => {
+    try {
+      await fsP.stat(path + 'openapi.json');
+    } catch (err) {
+      let openapi;
+      try {
+        openapi = await api.wampRequest('GET /swagger/v3/openapi.json');
+        fsP.writeFile(path + 'openapi.json', JSON.stringify(openapi, null, 2));
+        debug('saving api documentation');
+      } catch (err) {
+        // swagger isn't enabled
+        // put "enable_swagger: true" after the "---" line in
+        // RADS/projects/league_client/releases/<latest release>/deploy/system.yaml
+        // then restart
+        debug('swagger is not enabled');
+      }
+    }
+  })();
   if (version === prevDataVersion) {
     debug('current data matches version');
     dataIsCurrent = true;
@@ -110,25 +129,6 @@ async function loadData() {
       debug('data cached to filesystem');
     })();
   }
-  // try to save a copy of the swagger api docs
-  (async () => {
-    try {
-      await fsP.stat(path + 'openapi.json');
-    } catch (err) {
-      let openapi;
-      try {
-        openapi = await api.wampRequest('GET /swagger/v3/openapi.json');
-        fsP.writeFile(path + 'openapi.json', JSON.stringify(openapi, null, 2));
-        debug('saving api documentation');
-      } catch (err) {
-        // swagger isn't enabled
-        // put "enable_swagger: true" after the "---" line in
-        // RADS/projects/league_client/releases/<latest release>/deploy/system.yaml
-        // then restart
-        debug('swagger is not enabled');
-      }
-    }
-  })();
   prevDataVersion = version;
   dataIsCurrent = true;
   data = out;

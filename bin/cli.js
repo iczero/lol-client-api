@@ -9,7 +9,7 @@ let replServer = repl.start({
   breakEvalOnSigint: true
 });
 replServer.on('exit', () => process.exit(0));
-replServer.context.printEvents = false;
+replServer.context.config = config;
 
 api
 .on('connect', () => console.log('Found lockfile'))
@@ -25,10 +25,14 @@ api
 })
 .on('wsDisconnect', () => console.log('WebSocket events disconnected'))
 .on('OnJsonApiEvent', ev => {
-  if (!replServer.context.printEvents) return;
+  if (!config.cli.printEvents) return;
   let out = [];
   out.push(`===== API Event: ${ev.eventType} ${ev.uri}`);
-  out.push(util.inspect(ev.data, config.cliInspectOpts));
+  let inspected = util.inspect(ev.data, config.cli.inspectOpts).split('\n');
+  if (inspected.length > config.cli.truncateLength) {
+    out.push(...inspected.slice(0, config.cli.truncateLength));
+    out.push(`[truncated to ${config.cli.truncateLength} lines for sanity]`);
+  } else out.push(...inspected);
   out.push('');
   console.log(out.join('\n'));
 })
@@ -56,7 +60,7 @@ let request = function replDoRequest(method, endpoint, options) {
       out.push(`${header}: ${content}`);
     }
     out.push('');
-    out.push(util.inspect(result.body, config.cliInspectOpts));
+    out.push(util.inspect(result.body, config.cli.inspectOpts));
     out.push('');
     console.log(out.join('\n'));
     replServer.context.result = result.body;
@@ -70,7 +74,7 @@ replServer.context.wrequest = function replDoWampRequest(fnName, ...args) {
   .then(result => {
     let out = [];
     out.push(`===== WAMP Response: ${fnName}`);
-    out.push(util.inspect(result, config.cliInspectOpts));
+    out.push(util.inspect(result, config.cli.inspectOpts));
     out.push('');
     console.log(out.join('\n'));
     replServer.context.result = result;

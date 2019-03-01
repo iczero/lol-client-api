@@ -2,9 +2,13 @@ module.exports = {
   // Path to LeagueClient.exe
   exePath: 'C:\\Riot Games\\League of Legends\\LeagueClient.exe',
   // Options passed to util.inspect() when printing stuff to the console
-  cliInspectOpts: {
-    depth: Infinity,
-    colors: true
+  cli: {
+    inspectOpts: {
+      depth: Infinity,
+      colors: true
+    },
+    truncateLength: 100, // truncate event data to this many lines
+    printEvents: true
   },
   // Stuff to load
   // Paths are relative to bin/cli.js
