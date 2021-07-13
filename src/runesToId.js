@@ -7,7 +7,9 @@ const dataProvider = require('./dataProvider');
  */
 async function getRuneByName(name) {
   let data = await dataProvider.getData();
-  return data.perks.filter(perk => perk.name === name)[0];
+  let runeDesc = data.perks.filter(perk => perk.name === name)[0];
+  if (!runeDesc) throw new Error('Invalid rune name: ' + name);
+  return runeDesc;
 }
 
 /**
@@ -16,7 +18,9 @@ async function getRuneByName(name) {
  */
 async function getRuneStyleByName(name) {
   let data = await dataProvider.getData();
-  return data.perkStyles.filter(style => style.name === name)[0];
+  let styleDesc = data.perkStyles.filter(style => style.name === name)[0];
+  if (!styleDesc) throw new Error('Invalid rune style name: ' + name);
+  return styleDesc;
 }
 
 /**

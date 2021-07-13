@@ -3,7 +3,7 @@ const WebSocket = require('ws');
 const EventEmitter = require('events');
 const request = require('request-promise');
 const misc = require('./misc');
-const uuid = require('uuid');
+const uuid = require('uuid').v4;
 const debug = require('debug')('api:connector');
 
 const messageTypes = {

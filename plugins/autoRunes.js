@@ -92,7 +92,15 @@ module.exports = async function start() {
     } catch (err) {
       return;
     }
-    runePage = await runesToId.compileRunePage(runePage);
+    try {
+      runePage = await runesToId.compileRunePage(runePage);
+    } catch (err) {
+      console.error(`Error while compiling rune page for ${champion.name} (check validity?)`);
+      console.error(err);
+      // force update next time this champion is picked
+      prevSelectedChampionId = -1;
+      return;
+    }
     Object.assign(runePage, { name: `auto (${champion.name})` });
     debug('loaded rune page');
     try {
@@ -100,6 +108,8 @@ module.exports = async function start() {
     } catch (err) {
       console.error(`Error while setting rune page for ${champion.name} (check validity?)`);
       console.error(`${err.code}: ${err.description}`);
+      prevSelectedChampionId = -1;
+      return;
     }
     autoCurrentChampionId = champion.id;
     console.log('Successfully auto-updated rune page for ' + champion.name);
