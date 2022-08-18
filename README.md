@@ -2,6 +2,11 @@
 
 Lots of things that are good to have for some people who play League of Legends
 
+## WARNING: NO LONGER MAINTAINED
+
+These scripts are no longer maintained. Expect most everything to not work, break
+horribly, or get you banned for a few million years.
+
 ## Initial setup
 
 - Copy `config.js.template` to `config.js`, and edit if needed
